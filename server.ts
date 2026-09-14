@@ -8,6 +8,7 @@ import { getAuthContext } from './src/lib/auth';
 import { sendInngestEvent, isInngestConfigured } from './src/lib/inngest';
 import { handleTRPCRequest } from './src/lib/trpc';
 import { getTunisianGatewaysStatus, initiateTunisianPayment } from './src/lib/payments/tunisianPayments';
+import { getRefinedBotanicalAdvice, SONIA_SYSTEM_PROMPT } from './src/lib/ai/soniaConsultant';
 
 // Lightweight Product Catalog Summary for Gemini context to optimize token usage
 const PRODUCT_CATALOG_SUMMARY = INITIAL_PRODUCTS.map(p => ({
@@ -228,45 +229,33 @@ Renvoyez UNIQUEMENT un objet JSON valide avec cette structure exacte :
     }
   });
 
-  // AI Botanical Sales Consultant Endpoint (French Sonia Persona)
+  // AI Botanical Sales Consultant Endpoint (Refined Sonia Persona)
   app.post('/api/trpc/consultation.sendChatMessage', async (req, res) => {
+    const { message, userProfile } = req.body || {};
+    const fallbackAdvice = getRefinedBotanicalAdvice(message || '');
+
     try {
-      const { message, userProfile } = req.body;
       const ai = getGeminiClient();
 
       if (!ai) {
-        return res.json({
-          reply: "Bonjour ! Je suis Sonia, experte botaniste chez MiHerborista Tunisie. Pour votre peau, je vous conseille notre Sérum Acide Hyaluronique 3,5% (5,95 DT) combiné à un hydrolat bio. N'oubliez pas le code BIENVENUE10 pour bénéficier de -10% !",
-          recommendedProductIds: ['serum-acide-hyaluronique-35', 'hydrolat-rose-damas-bio']
-        });
+        return res.json(fallbackAdvice);
       }
 
-      const systemInstruction = `
-Tu es Sonia, conseillère botaniste certifiée et spécialiste dermo-cosmétique naturelle pour la marque MiHerborista en Tunisie.
-Ta mission : guider les clients, recommander des produits réels de notre catalogue, et inciter efficacement à l'achat tout en instaurant la confiance et la fidélité.
+      const prompt = `
+${SONIA_SYSTEM_PROMPT}
 
-Directives de réponse :
-1. TON ET STYLE : Courtoise, professionnelle, chaleureuse et très CONCISE (2 à 3 phrases maximum). Pas de blabla inutile pour économiser les tokens.
-2. CONVERSION ET VENTE :
-   - Analyse le besoin ou la question du client (acné, déshydratation, taches, pousse cheveux, etc.).
-   - Recommande 1 à 3 produits EXACTS parmi la liste fournie en mentionnant leurs identifiants dans 'recommendedProductIds'.
-   - Propose une synergie ou routine (ex: Sérum + Hydrolat ou Huile) pour aider le client à atteindre la livraison gratuite (offerte dès 35 DT).
-   - Offre ou rappelle le code promo de bienvenue : "-10% immédiats avec le code BIENVENUE10".
-   - Termine par une courte phrase incitant à ajouter les soins au panier.
-
-CATALOGUE PRODUITS MIHERBORISTA TUNISIE :
+CATALOGUE PRODUITS RÉSUMÉ :
 ${JSON.stringify(PRODUCT_CATALOG_SUMMARY, null, 2)}
 
-Structure JSON obligatoire de la réponse :
-{
-  "reply": "Ta réponse concise en 2 à 3 phrases en français.",
-  "recommendedProductIds": ["id_produit_1", "id_produit_2"]
-}
+DEMANDE DU CLIENT : "${message || ''}"
+PROFIL DU CLIENT : ${JSON.stringify(userProfile || {})}
+
+Rédige une réponse dermo-cosmétique d'une grande élégance, structurée, bienveillante et personnalisée, sans aucun cliché robotique.
 `;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3.8-flash',
-        contents: `${systemInstruction}\n\nQuestion client: "${message}"\nProfil client: ${JSON.stringify(userProfile || {})}`,
+        contents: prompt,
         config: {
           responseMimeType: 'application/json'
         }
@@ -278,22 +267,24 @@ Structure JSON obligatoire de la réponse :
         const cleanJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
         parsed = JSON.parse(cleanJson);
       } catch {
-        parsed = {
-          reply: rawText || "Voici nos soins botaniques recommandés. Profitez de -10% avec le code BIENVENUE10 !",
-          recommendedProductIds: ['serum-acide-hyaluronique-35', 'hydrolat-rose-damas-bio']
-        };
+        // If JSON parsing fails, fallback gracefully to refined knowledge
+        parsed = fallbackAdvice;
+      }
+
+      if (!parsed.reply || parsed.reply.trim().length < 15) {
+        parsed.reply = fallbackAdvice.reply;
+      }
+      if (!parsed.recommendedProductIds || parsed.recommendedProductIds.length === 0) {
+        parsed.recommendedProductIds = fallbackAdvice.recommendedProductIds;
       }
 
       return res.json({
         reply: parsed.reply,
-        recommendedProductIds: parsed.recommendedProductIds || []
+        recommendedProductIds: parsed.recommendedProductIds
       });
     } catch (error: any) {
-      console.error('Error in /api/trpc/consultation.sendChatMessage:', error);
-      return res.json({
-        reply: "Je suis Sonia, votre experte MiHerborista. Je vous recommande notre Sérum Acide Hyaluronique 3,5% (5,95 DT) et l'Hydrolat de Rose Bio. Profitez de -10% avec le code BIENVENUE10 !",
-        recommendedProductIds: ['serum-acide-hyaluronique-35', 'hydrolat-rose-damas-bio']
-      });
+      console.warn('Gemini API call bypassed or experiencing load. Using refined botanical engine:', error?.status || error?.message);
+      return res.json(fallbackAdvice);
     }
   });
 

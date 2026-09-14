@@ -15,6 +15,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { ChatMessage, Product, UserProfile } from '../../types';
+import { getRefinedBotanicalAdvice } from '../../lib/ai/soniaConsultant';
 
 interface FloatingSoniaChatProps {
   user: UserProfile;
@@ -26,6 +27,67 @@ interface FloatingSoniaChatProps {
   onOpenCart?: () => void;
   onOpenProductDetail?: (p: Product) => void;
 }
+
+// Helper to render refined botanical advice with formatted bolding, lists and tips
+const renderInlineSpans = (str: string) => {
+  const parts = str.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={i} className="font-bold text-[#0f291e]">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith('*') && part.endsWith('*')) {
+      return (
+        <em key={i} className="italic text-stone-700 font-medium">
+          {part.slice(1, -1)}
+        </em>
+      );
+    }
+    return part;
+  });
+};
+
+const renderFormattedBotanicalText = (text: string) => {
+  const lines = text.split('\n');
+  return (
+    <div className="space-y-1.5 text-xs text-stone-800 leading-relaxed font-sans">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          return <div key={idx} className="h-1" />;
+        }
+
+        // Highlight tip section (e.g. 🌿 *L'astuce de l'herboriste* : ...)
+        if (trimmed.startsWith('🌿') || trimmed.includes("L'astuce de l'herboriste")) {
+          return (
+            <div
+              key={idx}
+              className="bg-emerald-50/90 border border-emerald-200/70 rounded-xl p-2.5 my-2 text-[11.5px] text-emerald-950 shadow-2xs"
+            >
+              {renderInlineSpans(trimmed)}
+            </div>
+          );
+        }
+
+        // Bullet point lines starting with • or - or *
+        if (trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('* ')) {
+          const bulletContent = trimmed.replace(/^[•\-\*]\s*/, '');
+          return (
+            <div key={idx} className="flex items-start gap-2 pl-1 py-0.5">
+              <span className="text-emerald-700 font-bold shrink-0 mt-0.5">•</span>
+              <div className="flex-1">{renderInlineSpans(bulletContent)}</div>
+            </div>
+          );
+        }
+
+        return <p key={idx}>{renderInlineSpans(trimmed)}</p>;
+      })}
+    </div>
+  );
+};
 
 export const FloatingSoniaChat: React.FC<FloatingSoniaChatProps> = ({
   user,
@@ -112,43 +174,18 @@ export const FloatingSoniaChat: React.FC<FloatingSoniaChatProps> = ({
         }
       }
 
-      // Fallback if AI didn't return explicit product IDs
-      if (recommendedProducts.length === 0) {
-        const lower = text.toLowerCase();
-        if (lower.includes('acné') || lower.includes('pore') || lower.includes('imperfection')) {
-          recommendedProducts = products.filter(p =>
-            ['serum-niacinamide-cuivre-zinc', 'serum-acide-hyaluronique-35', 'huile-essentielle-tea-tree-bio'].includes(p.id)
-          );
-        } else if (lower.includes('sèche') || lower.includes('ridule') || lower.includes('déshydratation')) {
-          recommendedProducts = products.filter(p =>
-            ['serum-acide-hyaluronique-35', 'huile-vegetale-jojoba-bio', 'hydrolat-rose-damas-bio'].includes(p.id)
-          );
-        } else if (lower.includes('tache') || lower.includes('éclat') || lower.includes('terne')) {
-          recommendedProducts = products.filter(p =>
-            ['serum-vitamine-c-astaxanthine', 'hydrolat-rose-damas-bio', 'serum-retinol-like-vegetal'].includes(p.id)
-          );
-        } else if (lower.includes('cheveux') || lower.includes('chute') || lower.includes('pousse')) {
-          recommendedProducts = products.filter(p =>
-            ['huile-vegetale-ricin-bio', 'shampoing-solide-spiruline-bio', 'poudre-shikakai-bio'].includes(p.id)
-          );
-        } else {
-          recommendedProducts = products.slice(0, 3);
+      // If backend was unreachable or returned empty, use our refined botanical advice engine
+      if (!replyText || recommendedProducts.length === 0) {
+        const refined = getRefinedBotanicalAdvice(text);
+        if (!replyText) replyText = refined.reply;
+        if (recommendedProducts.length === 0) {
+          recommendedProducts = products.filter(p => refined.recommendedProductIds.includes(p.id));
         }
       }
 
-      if (!replyText) {
-        const lower = text.toLowerCase();
-        if (lower.includes('acné') || lower.includes('pore')) {
-          replyText = "Pour traiter l'acné et resserrer les pores sans assécher la peau, voici notre routine 100% naturelle ciblée :";
-        } else if (lower.includes('sèche') || lower.includes('ridule')) {
-          replyText = "Pour combler la déshydratation et lisser les ridules, voici votre rituel repulpant conseillé par nos botanistes :";
-        } else if (lower.includes('tache') || lower.includes('terne')) {
-          replyText = "Pour un teint radieux et unifié dès 14 jours, nous préconisons nos sérums boosters d'éclat à la vitamine C et hydrolats purs :";
-        } else if (lower.includes('cheveux') || lower.includes('pousse')) {
-          replyText = "Pour fortifier le cuir chevelu et stimuler une pousse dense, voici le rituel capillaire ayurvédique et végétal conseillé :";
-        } else {
-          replyText = "Voici les soins dermo-cosmétiques recommandés pour votre profil. N'hésitez pas à utiliser le code BIENVENUE10 pour bénéficier de -10% immédiats !";
-        }
+      // Guarantee of relevant products if filter had no matches
+      if (recommendedProducts.length === 0) {
+        recommendedProducts = products.slice(0, 3);
       }
 
       const assistantMsg: ChatMessage = {
@@ -161,13 +198,14 @@ export const FloatingSoniaChat: React.FC<FloatingSoniaChatProps> = ({
 
       setMessages(prev => [...prev, assistantMsg]);
     } catch {
+      const fallback = getRefinedBotanicalAdvice(text);
       setMessages(prev => [
         ...prev,
         {
           id: Date.now().toString(),
           sender: 'assistant',
-          text: "Je vous recommande nos sérums cultes formulés en Tunisie. Profitez de -10% avec le code BIENVENUE10 !",
-          recommendedProducts: products.slice(0, 3),
+          text: fallback.reply,
+          recommendedProducts: products.filter(p => fallback.recommendedProductIds.includes(p.id)),
           timestamp: timeStr
         }
       ]);
@@ -352,52 +390,64 @@ export const FloatingSoniaChat: React.FC<FloatingSoniaChatProps> = ({
                     )}
 
                     <div
-                      className={`max-w-[85%] ${
+                      className={`max-w-[88%] ${
                         msg.sender === 'user'
                           ? 'bg-[#0f291e] text-white rounded-2xl rounded-tr-xs p-3 text-xs leading-relaxed shadow-xs'
-                          : 'bg-white text-stone-800 border border-stone-200/90 rounded-2xl rounded-tl-xs p-3 text-xs leading-relaxed shadow-2xs'
+                          : 'bg-white text-stone-800 border border-stone-200/90 rounded-2xl rounded-tl-xs p-3.5 text-xs leading-relaxed shadow-2xs'
                       }`}
                     >
-                      <p className="whitespace-pre-line">{msg.text}</p>
+                      {msg.sender === 'assistant' ? (
+                        renderFormattedBotanicalText(msg.text)
+                      ) : (
+                        <p className="whitespace-pre-line">{msg.text}</p>
+                      )}
 
-                      {/* Render Product Recommendation Cards if present (matching image.png) */}
+                      {/* Render Product Recommendation Cards if present */}
                       {msg.recommendedProducts && msg.recommendedProducts.length > 0 && (
                         <div className="mt-3 space-y-2 border-t border-stone-100 pt-2.5">
+                          <div className="flex items-center justify-between text-[11px] font-serif font-bold text-[#0f291e] px-0.5">
+                            <span>Soins Botaniques Recommandés</span>
+                            <span className="text-[10px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60 font-medium">
+                              100% Purs
+                            </span>
+                          </div>
+
                           {msg.recommendedProducts.map((prod) => (
                             <div
                               key={prod.id}
-                              className="bg-white border border-stone-200/90 rounded-xl p-2 flex items-center justify-between gap-2 shadow-2xs hover:border-emerald-300 transition-colors"
+                              className="bg-white border border-stone-200/90 rounded-xl p-2.5 flex items-center justify-between gap-2.5 shadow-2xs hover:border-emerald-300 transition-colors"
                             >
                               {/* Product Thumbnail */}
                               <img
                                 src={prod.imageUrl}
                                 alt={prod.title}
-                                className="w-12 h-12 rounded-lg object-cover shrink-0 bg-stone-100 border border-stone-200/60"
+                                className="w-13 h-13 rounded-lg object-cover shrink-0 bg-stone-100 border border-stone-200/60"
                               />
 
-                              {/* Product Brief Details */}
+                              {/* Product Details with Readable Typography */}
                               <div className="flex-1 min-w-0 pr-1">
-                                <h4 className="font-bold text-xs text-stone-900 truncate">
+                                {prod.badge && (
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded-sm inline-block mb-0.5">
+                                    {prod.badge}
+                                  </span>
+                                )}
+                                <h4 className="font-serif font-bold text-xs text-stone-900 line-clamp-2 leading-tight">
                                   {prod.title}
                                 </h4>
-                                <p className="text-[11px] text-stone-500 truncate mt-0.5">
-                                  {prod.volumeOrSize || '30 ml'} • {prod.subtitle?.split('•')[0] || 'Soin naturel'}
-                                </p>
-                                <p className="font-bold text-xs text-[#0f291e] mt-0.5">
-                                  {prod.price.toFixed(2)} DT
-                                </p>
+                                <div className="flex items-center gap-1.5 mt-1">
+                                  <span className="font-bold text-xs text-[#0f291e]">
+                                    {prod.price.toFixed(2)} DT
+                                  </span>
+                                  {prod.volumeOrSize && (
+                                    <span className="text-[10px] text-stone-500 truncate max-w-[120px]">
+                                      • {prod.volumeOrSize.replace(/Flacon (verre ambré |spray )?/, '')}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
 
                               {/* Actions: Details & Add Button */}
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                {onOpenProductDetail && (
-                                  <button
-                                    onClick={() => onOpenProductDetail(prod)}
-                                    className="text-[11px] text-stone-600 hover:text-stone-900 font-medium px-1.5 py-1 underline cursor-pointer"
-                                  >
-                                    Détails
-                                  </button>
-                                )}
+                              <div className="flex flex-col items-end gap-1 shrink-0">
                                 <button
                                   onClick={() => onAddToCart(prod)}
                                   className="bg-[#0f291e] hover:bg-emerald-950 text-white font-bold text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-transform active:scale-95 cursor-pointer shadow-2xs"
@@ -405,6 +455,14 @@ export const FloatingSoniaChat: React.FC<FloatingSoniaChatProps> = ({
                                   <ShoppingBag className="w-3 h-3" />
                                   <span>Ajouter</span>
                                 </button>
+                                {onOpenProductDetail && (
+                                  <button
+                                    onClick={() => onOpenProductDetail(prod)}
+                                    className="text-[10px] text-stone-500 hover:text-stone-800 font-medium px-1 cursor-pointer underline"
+                                  >
+                                    Détails
+                                  </button>
+                                )}
                               </div>
                             </div>
                           ))}
