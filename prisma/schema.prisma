@@ -1,0 +1,142 @@
+// Prisma Schema for MiHerborista (PostgreSQL)
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH_ON_DELIVERY
+  BANK_CARD
+  D17_MOBILE
+}
+
+model User {
+  id               String          @id @default(cuid())
+  clerkId          String?         @unique
+  email            String          @unique
+  fullName         String?
+  phone            String?
+  role             Role            @default(CUSTOMER)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  orders           Order[]
+  diagnoses        SkinDiagnosis[]
+
+  @@map("users")
+}
+
+model Product {
+  id               String      @id @default(cuid())
+  slug             String      @unique
+  title            String
+  subtitle         String?
+  priceDT          Float
+  originalPriceDT  Float?
+  categoryKey      String
+  categoryLabel    String
+  description      String      @db.Text
+  usage            String?     @db.Text
+  ingredients      String[]
+  benefits         String[]
+  rating           Float       @default(5.0)
+  reviewsCount     Int         @default(0)
+  isOrganic        Boolean     @default(true)
+  isBestseller     Boolean     @default(false)
+  stockQuantity    Int         @default(100)
+  imageUrl         String
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  orderItems       OrderItem[]
+
+  @@map("products")
+}
+
+model Order {
+  id               String        @id @default(cuid())
+  orderNumber      String        @unique @default(cuid())
+  userId           String?
+  user             User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  customerName     String
+  customerEmail    String
+  customerPhone    String
+  deliveryAddress  String
+  city             String        @default("Tunis")
+  governorate      String        @default("Tunis")
+  paymentMethod    PaymentMethod @default(CASH_ON_DELIVERY)
+  status           OrderStatus   @default(PENDING)
+  subtotalDT       Float
+  shippingFeeDT    Float         @default(7.0)
+  discountDT       Float         @default(0.0)
+  totalAmountDT    Float
+  notes            String?       @db.Text
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  items            OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  quantity   Int      @default(1)
+  priceDT    Float
+
+  @@map("order_items")
+}
+
+model SkinDiagnosis {
+  id                  String   @id @default(cuid())
+  userId              String?
+  user                User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  skinType            String
+  dehydrationLevel    String
+  sensitivity         String
+  primaryConcern      String
+  recommendedProducts String[]
+  createdAt           DateTime @default(now())
+
+  @@map("skin_diagnoses")
+}
+
+model DIYRecipe {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  title           String
+  subtitle        String?
+  prepTimeMinutes Int
+  difficulty      String
+  batchCostDT     Float
+  description     String   @db.Text
+  ingredients     Json
+  steps           String[]
+  imageUrl        String?
+  createdAt       DateTime @default(now())
+
+  @@map("diy_recipes")
+}

@@ -1,0 +1,6 @@
+{
+  "name": "MiHerborista",
+  "description": "MiHerborista - Cosmétique Naturelle & DIY en Tunisie. Sérums, Huiles BIO, Recettes & Conseillère IA Sonia.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

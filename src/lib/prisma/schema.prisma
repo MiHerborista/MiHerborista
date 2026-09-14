@@ -1,0 +1,129 @@
+// Prisma Schema for MiHerborista PostgreSQL Database
+// Target Stack: Next.js + Prisma + PostgreSQL
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                   String            @id // Clerk User ID
+  email                String            @unique
+  fullName             String?
+  role                 UserRole          @default(FREE)
+  healthConditions     String[]          @default([])
+  allergies            String[]          @default([])
+  isPregnantOrNursing  Boolean           @default(false)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  
+  savedRemedies        SavedRemedy[]
+  customRemedies       Remedy[]          @relation("UserCustomRemedies")
+  consultationHistory  ConsultationSession[]
+}
+
+enum UserRole {
+  FREE
+  PRO_HERBORISTA
+  ADMIN
+}
+
+model Plant {
+  id                   String            @id @default(cuid())
+  slug                 String            @unique
+  name                 String
+  scientificName       String
+  category             PlantCategory
+  tags                 String[]
+  description          String
+  benefits             String[]
+  preparationMethods   PreparationMethod[]
+  dosage               String
+  contraindications    String[]
+  activePrinciples     String[]
+  flavorProfile        String
+  origin               String
+  imageUrl             String?
+  createdAt            DateTime          @default(now())
+  
+  remedyIngredients    RemedyIngredient[]
+}
+
+enum PlantCategory {
+  DIGESTIVO
+  RELAJANTE
+  INMUNOLOGICO
+  ANTIINFLAMATORIO
+  RESPIRATORIO
+  CIRCULATORIO
+  DEPURATIVO
+  PIEL
+}
+
+enum PreparationMethod {
+  INFUSION
+  DECOCCION
+  TINTURA
+  CATAPLASMA
+  ACEITE_ESENCIAL
+  JARABE
+  VAHO
+}
+
+model Remedy {
+  id                   String            @id @default(cuid())
+  title                String
+  subtitle             String?
+  ailmentTarget        String
+  category             PlantCategory
+  prepTimeMinutes      Int               @default(10)
+  preparationSteps     String[]
+  dosageAndUsage       String
+  bestTime             String?
+  precautions          String[]
+  isAiGenerated        Boolean           @default(false)
+  createdAt            DateTime          @default(now())
+  
+  authorId             String?
+  author               User?             @relation("UserCustomRemedies", fields: [authorId], references: [id])
+  
+  ingredients          RemedyIngredient[]
+  savedByUsers         SavedRemedy[]
+}
+
+model RemedyIngredient {
+  id                   String            @id @default(cuid())
+  remedyId             String
+  remedy               Remedy            @relation(fields: [remedyId], references: [id], onDelete: Cascade)
+  plantId             String?
+  plant                Plant?            @relation(fields: [plantId], references: [id])
+  plantName            String
+  amount               String
+  purpose              String
+}
+
+model SavedRemedy {
+  id                   String            @id @default(cuid())
+  userId               String
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  remedyId             String
+  remedy               Remedy            @relation(fields: [remedyId], references: [id], onDelete: Cascade)
+  notes                String?
+  savedAt              DateTime          @default(now())
+
+  @@unique([userId, remedyId])
+}
+
+model ConsultationSession {
+  id                   String            @id @default(cuid())
+  userId               String
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages             Json              // ChatMessage[] array in JSON format
+  summary              String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+}
