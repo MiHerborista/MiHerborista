@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, ShieldCheck, Truck, Tag, Sparkles, Check } from 'lucide-react';
-import { CartItem } from '../../types';
+import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, ShieldCheck, Truck, Tag, Sparkles, Check, CreditCard } from 'lucide-react';
+import { CartItem, UserProfile } from '../../types';
+import { TunisianCheckoutModal } from './TunisianCheckoutModal';
 
 interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   cart: CartItem[];
+  user?: UserProfile;
   onUpdateQuantity: (productId: string, delta: number) => void;
   onRemoveItem: (productId: string) => void;
   onClearCart: () => void;
@@ -16,6 +18,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   isOpen,
   onClose,
   cart,
+  user = {
+    id: 'guest_user',
+    fullName: 'Client MiHerborista',
+    email: 'client@miherborista.tn',
+    role: 'client',
+    savedProductIds: [],
+    cart: []
+  },
   onUpdateQuantity,
   onRemoveItem,
   onClearCart
@@ -25,6 +35,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [promoError, setPromoError] = useState('');
   const [promoSuccess, setPromoSuccess] = useState('');
   const [isOrdered, setIsOrdered] = useState(false);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
 
   const subtotal = cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
   const discount = (subtotal * discountPercent) / 100;
@@ -291,18 +302,19 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   </div>
                 </div>
 
-                {/* Simulated Checkout */}
+                {/* Tunisian Checkout Button */}
                 <button
-                  onClick={handleSimulateCheckout}
+                  onClick={() => setIsCheckoutModalOpen(true)}
                   className="w-full py-3 bg-[#0f291e] hover:bg-emerald-950 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center space-x-2 shadow-md cursor-pointer active:scale-98"
                 >
+                  <CreditCard className="w-4 h-4" />
                   <span>Passer la commande ({total.toFixed(2).replace('.', ',')} DT)</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
 
                 <div className="flex items-center justify-center space-x-1.5 text-[10px] text-stone-500 font-medium pt-0.5">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-800" />
-                  <span>Paiement sécurisé & Livraison en 24/48h partout en Tunisie</span>
+                  <span>Konnect, Flouci, Paymee ou Paiement à la livraison</span>
                 </div>
 
               </div>
@@ -310,6 +322,26 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           </motion.div>
         </div>
       )}
+
+      {/* Tunisian Payment & Checkout Modal */}
+      <TunisianCheckoutModal
+        isOpen={isCheckoutModalOpen}
+        onClose={() => setIsCheckoutModalOpen(false)}
+        cart={cart}
+        subtotal={subtotal}
+        discount={discount}
+        discountPercent={discountPercent}
+        shipping={shipping}
+        total={total}
+        user={user}
+        onOrderSuccess={(orderData) => {
+          onClearCart();
+          setIsOrdered(true);
+          setTimeout(() => {
+            setIsOrdered(false);
+          }, 3000);
+        }}
+      />
     </AnimatePresence>
   );
 };

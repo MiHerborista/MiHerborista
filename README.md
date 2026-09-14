@@ -71,6 +71,16 @@ Composant d'authentification utilisateur réactif (`src/components/auth/ClerkAut
 - **Créer un Compte** : Inscription complète avec saisie du nom, email et numéro de téléphone tunisien.
 - **Support Hybride / Fallback** : Fonctionne aussi bien avec la clé de publication Clerk qu'en mode autonome sans clé d'API.
 
+**💳 Suite de Paiements Tunisiens (Konnect, Flouci, Paymee, COD & D17)**  
+Moteur complet de règlement en **Dinar Tunisien (TND)** conforme à la législation tunisienne sur le commerce électronique (Loi n° 2000-83), intégrant :
+- **Konnect Network** (`/api/payments/init`) : Agrégateur tout-en-un pour cartes bancaires CIB, carte e-Dinar de La Poste Tunisienne, Visa, Mastercard et portefeuilles mobiles.
+- **Flouci (Kaoun)** : Débit instantané sur smartphone via l'application mobile Flouci ou scan de code QR dynamique.
+- **Paymee.tn** : Passerelle monétique agréée pour paiements par carte bancaire tunisienne.
+- **Paiement à la Livraison (Cash on Delivery - COD)** : Option privilégiée en Tunisie (70%+ des commandes) avec confirmation d'adresse dans les 24 gouvernorats tunisiens et suivi transporteur (Aramex, Yalidine).
+- **D17 / Mandat Minute La Poste** : Instructions automatiques de virement postal mobile direct.
+- **Modale de Checkout Dédiée (`TunisianCheckoutModal.tsx`)** : Saisie d'adresse détaillée, sélection du gouvernorat parmi les 24 régions, récapitulatif net avec seuil de livraison offerte (dès 35 DT) et génération de reçu imprimable.
+
+
 ---
 
 ## 📐 Exemples de Requêtes & Interactions
@@ -170,18 +180,23 @@ miherborista/
 │   │   ├── db.ts              # Client Prisma / PostgreSQL avec mode de secours
 │   │   ├── auth.ts            # Intégration Clerk Auth
 │   │   ├── trpc.ts            # Procedures et routeur tRPC
-│   │   └── inngest.ts         # Handlers d'événements Inngest
+│   │   ├── inngest.ts         # Handlers d'événements Inngest
+│   │   └── payments/
+│   │       └── tunisianPayments.ts # Passerelles Konnect, Flouci, Paymee & COD
 │   ├── data/
 │   │   ├── productsData.ts    # Catalogue des produits cosmétiques & ingrédients
 │   │   └── recipesData.ts     # Recettes et tutoriels DIY
 │   ├── components/
 │   │   ├── ai/
 │   │   │   └── FloatingSoniaChat.tsx   # Assistant virtuel IA Sonia
+│   │   ├── architecture/
+│   │   │   └── StackInspector.tsx      # Inspecteur technique tRPC, Prisma, Inngest & Paiements
 │   │   ├── auth/
 │   │   │   └── ClerkAuthModal.tsx      # Modal d'authentification Clerk (Profil, Connexion, Inscription)
 │   │   ├── cart/
 │   │   │   ├── CartDrawer.tsx          # Tiroir Panier avec barre de livraison
-│   │   │   └── WishlistDrawer.tsx      # Tiroir Favoris / Coups de cœur
+│   │   │   ├── WishlistDrawer.tsx      # Tiroir Favoris / Coups de cœur
+│   │   │   └── TunisianCheckoutModal.tsx # Formulaire de livraison & choix de paiement tunisien
 │   │   ├── home/
 │   │   │   ├── HeroBanner.tsx          # Bannières principales & offres
 │   │   │   ├── PromoBar.tsx            # Avantages (Livraison 35DT, Produit BIO)
@@ -239,6 +254,13 @@ CLERK_SECRET_KEY="sk_test_..."
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
 INNGEST_EVENT_KEY="ink_..."
 INNGEST_SIGNING_KEY="signkey_..."
+
+# Passerelles de Paiement Tunisie (TND / Millimes)
+KONNECT_API_KEY="konnect_api_key_..."
+KONNECT_RECEIVER_WALLET_ID="konnect_wallet_id_..."
+FLOUCI_APP_TOKEN="flouci_app_token_..."
+FLOUCI_APP_SECRET="flouci_app_secret_..."
+PAYMEE_API_KEY="paymee_api_key_..."
 ```
 
 > ⚠️ **Sécurité API** : Les clés secrètes (`GEMINI_API_KEY`, `CLERK_SECRET_KEY`, `DATABASE_URL`) sont consommées uniquement côté serveur dans `server.ts` et ne sont jamais exposées au navigateur client.

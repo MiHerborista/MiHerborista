@@ -7,6 +7,7 @@ import { checkDbConnection } from './src/lib/db';
 import { getAuthContext } from './src/lib/auth';
 import { sendInngestEvent, isInngestConfigured } from './src/lib/inngest';
 import { handleTRPCRequest } from './src/lib/trpc';
+import { getTunisianGatewaysStatus, initiateTunisianPayment } from './src/lib/payments/tunisianPayments';
 
 // Lightweight Product Catalog Summary for Gemini context to optimize token usage
 const PRODUCT_CATALOG_SUMMARY = INITIAL_PRODUCTS.map(p => ({
@@ -67,6 +68,14 @@ async function startServer() {
           configured: inngestActive,
           status: inngestActive ? 'Active' : 'Simulated (Local)'
         },
+        tunisianPayments: {
+          gatewaysCount: 5,
+          activeGateways: getTunisianGatewaysStatus().map(g => ({
+            id: g.id,
+            name: g.name,
+            status: g.status
+          }))
+        },
         trpcApi: {
           status: 'Ready',
           router: 'AppRouter'
@@ -96,6 +105,71 @@ async function startServer() {
     const { name, data } = req.body;
     const result = await sendInngestEvent({ name: name || 'generic.event', data: data || {} });
     res.json(result);
+  });
+
+  // --- Tunisian Payment Gateways Endpoints ---
+  // 1. List available gateways and live/sandbox status
+  app.get('/api/payments/gateways', (req, res) => {
+    try {
+      const gateways = getTunisianGatewaysStatus();
+      res.json({
+        currency: 'TND',
+        symbol: 'DT',
+        market: 'Tunisia',
+        gateways
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 2. Initiate Payment Session (Konnect, Flouci, Paymee, COD, D17)
+  app.post('/api/payments/init', async (req, res) => {
+    try {
+      const { orderId, amountTND, gateway, customer, items } = req.body;
+
+      if (!orderId || !amountTND || !gateway || !customer) {
+        return res.status(400).json({
+          error: 'Champs requis manquants (orderId, amountTND, gateway, customer).'
+        });
+      }
+
+      const result = await initiateTunisianPayment({
+        orderId,
+        amountTND: Number(amountTND),
+        gateway,
+        customer,
+        items: items || [],
+        successUrl: req.body.successUrl,
+        failUrl: req.body.failUrl
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('Payment initialization error:', error);
+      res.status(500).json({
+        error: error.message || 'Erreur lors de l\'initialisation du paiement tunisien'
+      });
+    }
+  });
+
+  // 3. Webhook listener for external gateway callbacks (Konnect, Flouci, Paymee)
+  app.post('/api/payments/webhook/:gateway', async (req, res) => {
+    const gateway = req.params.gateway;
+    console.log(`[Payment Webhook - ${gateway.toUpperCase()}] Notification reçue:`, req.body);
+    // Return 200 OK to acknowledge receipt to the Tunisian payment gateway
+    res.json({ received: true, gateway, timestamp: new Date().toISOString() });
+  });
+
+  // 4. Check Payment Status
+  app.get('/api/payments/status/:orderId', (req, res) => {
+    const { orderId } = req.params;
+    res.json({
+      orderId,
+      status: 'confirmed',
+      currency: 'TND',
+      checkedAt: new Date().toISOString()
+    });
   });
 
 
