@@ -129,6 +129,7 @@ Les packages npm essentiels configurés dans `package.json` :
 ```json
 {
   "dependencies": {
+    "@clerk/clerk-react": "^5.32.0",
     "@clerk/express": "^2.1.67",
     "@google/genai": "^2.4.0",
     "@prisma/client": "^7.10.0",
@@ -162,7 +163,7 @@ miherborista/
 │   └── schema.prisma          # Schémas de base de données PostgreSQL (User, Product, Order, etc.)
 ├── src/
 │   ├── App.tsx                # Composant racine orchestrant l'état principal
-│   ├── main.tsx               # Point d'entrée React
+│   ├── main.tsx               # Point d'entrée React avec ClerkProvider conditionnel
 │   ├── index.css              # Directive globale Tailwind CSS (@import "tailwindcss")
 │   ├── types.ts               # Interfaces TypeScript (Product, CartItem, Diagnosis, etc.)
 │   ├── lib/                   # Wrappers & Skeletons d'Infrastructures
@@ -176,6 +177,8 @@ miherborista/
 │   ├── components/
 │   │   ├── ai/
 │   │   │   └── FloatingSoniaChat.tsx   # Assistant virtuel IA Sonia
+│   │   ├── auth/
+│   │   │   └── ClerkAuthModal.tsx      # Modal d'authentification Clerk (Profil, Connexion, Inscription)
 │   │   ├── cart/
 │   │   │   ├── CartDrawer.tsx          # Tiroir Panier avec barre de livraison
 │   │   │   └── WishlistDrawer.tsx      # Tiroir Favoris / Coups de cœur
