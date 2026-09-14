@@ -31,7 +31,7 @@
 
 <!-- Replace this image link with your actual screenshot of the main page -->
 <div align="center">
-<img width="2558" height="1382" alt="Screenshot from 2026-09-14 17-03-20" src="https://github.com/user-attachments/assets/864d4d7c-575a-4f83-8343-8ab7eb2ada7b" />
+  <img width="2558" height="1382" alt="MiHerborista Landing Page" src="https://github.com/user-attachments/assets/864d4d7c-575a-4f83-8343-8ab7eb2ada7b" />
   <p><em>Capture d'écran de l'interface principale MiHerborista — Herboristerie & Cosmétique Botanique</em></p>
 </div>
 

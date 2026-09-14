@@ -38,3 +38,4 @@ if (clerkPubKey && clerkPubKey !== 'pk_test_...') {
     </StrictMode>
   );
 }
+
