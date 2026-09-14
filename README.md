@@ -64,6 +64,13 @@ Intégration d'un module juridique comprenant les **Mentions Légales** (Matricu
 **🗄️ Ready for Production Backend (Prisma, PostgreSQL, Clerk, tRPC, Inngest)**  
 Architecture backend complète intégrant Prisma ORM, les schémas PostgreSQL, l'authentification Clerk, le routage tRPC et les workflows d'arrière-plan Inngest, avec mode de repli automatique en absence de clés d'API.
 
+**🔐 Authentification Clerk & Gestion de Session (`ClerkAuthModal`)**  
+Composant d'authentification utilisateur réactif (`src/components/auth/ClerkAuthModal.tsx`) propulsé par `@clerk/clerk-react` et `@clerk/express`. Propose trois onglets d'interaction :
+- **Mon Profil** : Statut de la session (Invité vs Authentifié Clerk), badge d'avatar, email, identifiant unique Clerk (`user_clerk_...`) et compteur de coups de cœur.
+- **Se Connecter** : Formulaire de connexion sécurisé avec retour d'information instantané.
+- **Créer un Compte** : Inscription complète avec saisie du nom, email et numéro de téléphone tunisien.
+- **Support Hybride / Fallback** : Fonctionne aussi bien avec la clé de publication Clerk qu'en mode autonome sans clé d'API.
+
 ---
 
 ## 📐 Exemples de Requêtes & Interactions
